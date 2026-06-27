@@ -10,7 +10,7 @@ import Link from "next/link";
 import { getAIKey, createProject, createEmptyMeta, type SoftwareMeta } from "@/lib/storage";
 import { fetchUserRepos, type GitHubRepo } from "@/lib/github";
 import { callAIForText, buildAutoNamePrompt, buildCategoryPrompt, buildLanguagesPrompt, buildTechCategoriesPrompt } from "@/lib/ai-helpers";
-import { GIVEN_LANGUAGES, GIVEN_TECH_CATEGORIES, SOFTWARE_CATEGORIES, parseUserAgent, detectLanguages, detectDevTools } from "@/lib/utils";
+import { GIVEN_LANGUAGES, GIVEN_TECH_CATEGORIES, SOFTWARE_CATEGORIES, parseUserAgent } from "@/lib/utils";
 
 const PAGE_SIZE = 12;
 
@@ -56,16 +56,16 @@ function NewProjectContent() {
   const totalPages = Math.ceil(filteredRepos.length / PAGE_SIZE);
   const pagedRepos = filteredRepos.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  useEffect(() => { setPage(1); }, [search]);
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setPage(1);
+  };
 
-  // Auto-fill when repo is selected
-  useEffect(() => {
-    if (!selectedRepo) return;
-    if (selectedRepo.pushed_at) {
-      setCompletedAt(selectedRepo.pushed_at.slice(0, 10));
-    }
-    // Auto-detect from UA
-    const { hardware, os, cores, memory } = parseUserAgent();
+  const handleSelectRepo = useCallback((repo: GitHubRepo) => {
+    setSelectedRepo(repo);
+    setCompletedAt(repo.pushed_at ? repo.pushed_at.slice(0, 10) : "");
+
+    const { os, cores, memory } = parseUserAgent();
     setMeta((prev) => ({
       ...prev,
       devHardware: `PC, ${os}, ${cores}核CPU, ${memory}GB内存`,
@@ -74,13 +74,11 @@ function NewProjectContent() {
       devTools: "未检测到特定开发工具",
       languagesGiven: [],
     }));
-  }, [selectedRepo]);
 
-  // Auto-generate software name on repo select
-  useEffect(() => {
-    if (!selectedRepo || !getAIKey()) return;
+    if (!getAIKey()) return;
+
     setGeneratingName(true);
-    callAIForText(buildAutoNamePrompt(selectedRepo.name, selectedRepo.description || "", selectedRepo.language || ""))
+    callAIForText(buildAutoNamePrompt(repo.name, repo.description || "", repo.language || ""))
       .then((name) => {
         if (name) {
           name = name.replace(/^["'""]|["'""]$/g, "").trim();
@@ -93,7 +91,7 @@ function NewProjectContent() {
 
     // Auto-detect category
     setGeneratingCategory(true);
-    callAIForText(buildCategoryPrompt(selectedRepo.name, selectedRepo.description || "", selectedRepo.language || ""))
+    callAIForText(buildCategoryPrompt(repo.name, repo.description || "", repo.language || ""))
       .then((cat) => {
         if (cat && SOFTWARE_CATEGORIES.includes(cat.trim())) {
           setCategory(cat.trim());
@@ -103,19 +101,19 @@ function NewProjectContent() {
       .finally(() => setGeneratingCategory(false));
 
     // Auto-detect languages
-    callAIForText(buildLanguagesPrompt(selectedRepo.name, selectedRepo.description || "", selectedRepo.language || ""))
+    callAIForText(buildLanguagesPrompt(repo.name, repo.description || "", repo.language || ""))
       .then((text) => {
         const langs = text.split(",").map((s) => s.trim()).filter((s) => GIVEN_LANGUAGES.includes(s));
         // Also auto-map from GitHub's primary language
         const langMap: Record<string, string> = { TypeScript: "JavaScript", Kotlin: "Java", Scala: "Java", Dart: "C#", Rust: "C++", Shell: "Python", Bash: "Python", Vue: "JavaScript", Svelte: "JavaScript" };
-        const autoLang = langMap[selectedRepo.language || ""] || selectedRepo.language || "";
+        const autoLang = langMap[repo.language || ""] || repo.language || "";
         if (autoLang && GIVEN_LANGUAGES.includes(autoLang) && !langs.includes(autoLang)) langs.unshift(autoLang);
         if (langs.length > 0) setMeta((prev) => ({ ...prev, languagesGiven: langs }));
       })
       .catch(() => {});
 
     // Auto-detect tech categories — always must have at least one
-    callAIForText(buildTechCategoriesPrompt(selectedRepo.name, selectedRepo.description || "", selectedRepo.language || ""))
+    callAIForText(buildTechCategoriesPrompt(repo.name, repo.description || "", repo.language || ""))
       .then((text) => {
         const cats = text.split(",").map((s) => s.trim()).filter((s) => GIVEN_TECH_CATEGORIES.includes(s));
         // Fallback: if no match, default to "应用软件" mapped into given categories
@@ -126,7 +124,7 @@ function NewProjectContent() {
         // On AI failure, set a default
         setMeta((prev) => ({ ...prev, techCategoriesGiven: ["APP"] }));
       });
-  }, [selectedRepo]);
+  }, []);
 
   const toggleLanguage = (lang: string) => {
     setMeta((prev) => ({
@@ -190,7 +188,7 @@ function NewProjectContent() {
         {!selectedRepo ? (
           <div>
             <div className="mb-6">
-              <input type="text" placeholder="搜索仓库..." value={search} onChange={(e) => setSearch(e.target.value)}
+              <input type="text" placeholder="搜索仓库..." value={search} onChange={(e) => handleSearchChange(e.target.value)}
                 className="w-full px-4 py-3 bg-[var(--color-card)] border border-[var(--color-border)] rounded-lg text-sm focus:outline-none focus:border-[var(--color-primary)]" />
               {!loading && <div className="flex items-center justify-between mt-2 text-xs text-[var(--color-muted)]">
                 <span>共 {filteredRepos.length} 个仓库</span>
@@ -205,7 +203,7 @@ function NewProjectContent() {
               <>
                 <div className="grid gap-3">
                   {pagedRepos.map((repo) => (
-                    <button key={repo.id} onClick={() => setSelectedRepo(repo)}
+                    <button key={repo.id} onClick={() => handleSelectRepo(repo)}
                       className="text-left bg-[var(--color-card)] border border-[var(--color-border)] rounded-xl p-4 hover:border-[var(--color-primary)]/50 transition-colors">
                       <div className="flex items-center justify-between mb-2">
                         <div className="font-medium">{repo.full_name}</div>
