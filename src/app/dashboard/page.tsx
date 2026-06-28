@@ -2,6 +2,7 @@
 import Logo from "@/components/Logo";
 
 
+import Image from "next/image";
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { SessionProvider } from "next-auth/react";
@@ -20,6 +21,11 @@ type SortKey = "createdAt" | "softwareName" | "status";
 
 const statusOrder: Record<string, number> = { PROCESSING: 0, PENDING: 1, FAILED: 2, DONE: 3 };
 
+function SortIndicator({ active, ascending }: { active: boolean; ascending: boolean }) {
+  if (!active) return null;
+  return <span className="ml-1 text-xs">{ascending ? "↑" : "↓"}</span>;
+}
+
 function DashboardContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -36,7 +42,14 @@ function DashboardContent() {
   }, [status, session, router]);
 
   useEffect(() => {
-    if (session) setProjects(getProjects());
+    if (!session) return;
+    let active = true;
+    const refreshProjects = async () => {
+      await Promise.resolve();
+      if (active) setProjects(getProjects());
+    };
+    void refreshProjects();
+    return () => { active = false; };
   }, [session]);
 
   const filtered = useMemo(() => {
@@ -61,7 +74,8 @@ function DashboardContent() {
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
@@ -89,11 +103,6 @@ function DashboardContent() {
     else { setSortKey(key); setSortAsc(key === "softwareName"); }
   };
 
-  const SortIndicator = ({ k }: { k: SortKey }) => {
-    if (sortKey !== k) return null;
-    return <span className="ml-1 text-xs">{sortAsc ? "↑" : "↓"}</span>;
-  };
-
   if (status === "loading" || !session) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -112,7 +121,7 @@ function DashboardContent() {
           </Link>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              {session.user?.image && <img src={session.user.image} alt="" className="w-7 h-7 rounded-full" />}
+              {session.user?.image && <Image src={session.user.image} alt="" width={28} height={28} unoptimized className="rounded-full" />}
               <span className="text-sm text-[var(--color-muted)]">{session.user?.name}</span>
             </div>
             <button onClick={() => signOut()} className="text-sm text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors">退出</button>
@@ -172,14 +181,14 @@ function DashboardContent() {
                   className="w-4 h-4 rounded border-[var(--color-border)] bg-[var(--color-input-bg)] accent-[var(--color-primary)]" />
               </label>
               <button onClick={() => handleSort("softwareName")} className="text-left hover:text-[var(--color-foreground)] transition-colors">
-                项目名称<SortIndicator k="softwareName" />
+                项目名称<SortIndicator active={sortKey === "softwareName"} ascending={sortAsc} />
               </button>
               <button onClick={() => handleSort("status")} className="text-left hover:text-[var(--color-foreground)] transition-colors">
-                状态<SortIndicator k="status" />
+                状态<SortIndicator active={sortKey === "status"} ascending={sortAsc} />
               </button>
               <span>仓库</span>
               <button onClick={() => handleSort("createdAt")} className="text-left hover:text-[var(--color-foreground)] transition-colors">
-                创建时间<SortIndicator k="createdAt" />
+                创建时间<SortIndicator active={sortKey === "createdAt"} ascending={sortAsc} />
               </button>
               <span className="text-center">操作</span>
             </div>

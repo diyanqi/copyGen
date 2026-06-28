@@ -28,7 +28,6 @@ const HASH_LANGS = new Set([
 const DASH_LANGS = new Set([".sql", ".lua", ".hs", ".lhs", ".elm"]);
 const SEMICOLON_LANGS = new Set([".asm", ".s", ".lisp", ".clj", ".rkt"]);
 const VB_LANGS = new Set([".vb", ".vbs", ".bas"]);
-const APOSTROPHE_LANGS = new Set([".vb", ".vbs"]);
 
 function getCommentPrefix(ext: string): string | null {
   if (SLASH_SLASH_LANGS.has(ext)) return "//";
@@ -123,8 +122,6 @@ export function compressEmptyLines(code: string): string {
 // ── Pagination for 程序鉴别材料 ──
 
 const LINES_PER_PAGE = 50;
-const FRONT_PAGES = 30;
-const BACK_PAGES = 30;
 
 export function selectCodeLines(allLines: string[]): string[] {
   const totalLines = allLines.length;

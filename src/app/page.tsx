@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useSession, signIn, signOut } from "next-auth/react";
 import { SessionProvider } from "next-auth/react";
@@ -104,7 +105,7 @@ function LandingContent() {
             )}
             {session ? (
               <div className="flex items-center gap-3">
-                {session.user?.image && <img src={session.user.image} alt="" className="w-7 h-7 rounded-full" />}
+                {session.user?.image && <Image src={session.user.image} alt="" width={28} height={28} unoptimized className="rounded-full" />}
                 <span className="text-sm text-[var(--color-muted)]">{session.user?.name}</span>
                 <button onClick={() => signOut()} className="text-sm text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors">退出</button>
               </div>

@@ -12,7 +12,7 @@ import { fetchRepoFiles, fetchRepoStats } from "@/lib/github";
 import { generateManualMarkdown, callAIForText, buildMetadataPrompt } from "@/lib/ai-helpers";
 import { generateCodePDF } from "@/lib/docgen/code-pdf";
 import { generateManualPDF } from "@/lib/docgen/manual-pdf";
-import { parseUserAgent, detectDevTools, detectLanguages } from "@/lib/utils";
+import { parseUserAgent, detectDevTools } from "@/lib/utils";
 
 const steps = ["读取仓库代码", "分析代码结构", "AI 生成元数据", "生成程序鉴别材料", "生成文档鉴别材料", "完成"];
 
@@ -41,12 +41,18 @@ function ProjectDetailContent() {
   }, [status, session, router]);
 
   useEffect(() => {
-    if (session) {
+    if (!session) return;
+    let active = true;
+    const loadProject = async () => {
+      await Promise.resolve();
+      if (!active) return;
       const p = getProject(projectId);
       if (!p) { router.push("/dashboard"); return; }
       setProject(p);
       setMeta(p.meta);
-    }
+    };
+    void loadProject();
+    return () => { active = false; };
   }, [projectId, session, router]);
 
   // Auto-detect metadata on first visit
@@ -54,7 +60,7 @@ function ProjectDetailContent() {
     if (!project || !accessToken || metaReady) return;
 
     const detectMeta = async () => {
-      const { hardware, os, cores, memory } = parseUserAgent();
+      const { os, cores, memory } = parseUserAgent();
       setMeta((prev) => prev ? {
         ...prev,
         devHardware: `PC, ${os}, ${cores}核CPU, ${memory}GB内存`,
